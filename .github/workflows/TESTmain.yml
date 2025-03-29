@@ -29,6 +29,8 @@ env:
   DEFCONFIG: "oneplus/mt6983_v_15.0.0_nord_3_defconfig"
   MAKE_FLAGS: "-j$(nproc --all)"
   ARTIFACT_NAME: "kernel-$(date +'%Y%m%d-%H%M%S')"
+  KERNEL_REPO: "https://github.com/OnePlusOSS/android_kernel_5.10_oneplus_mt6983.git"
+  KERNEL_BRANCH: "oneplus/mt6983_v_15.0.0_nord_3"
 
 jobs:
   build:
@@ -52,14 +54,13 @@ jobs:
           libxml2-utils xsltproc unzip fontconfig python3 bc cpio rsync \
           ccache libssl-dev patch
 
-    - name: Checkout kernel source
-      uses: actions/checkout@v4
-      with:
-        repository: OnePlusOSS/android_kernel_5.10_oneplus_mt6983
-        ref: oneplus/mt6983_v_15.0.0_nord_3
-        path: kernel_source
-        submodules: recursive
-        fetch-depth: 1
+    - name: Clone kernel source
+      run: |
+        git clone --depth=1 \
+          --branch ${{ env.KERNEL_BRANCH }} \
+          --recurse-submodules \
+          ${{ env.KERNEL_REPO }} \
+          kernel_source
 
     - name: Get OPlus modules
       run: |
