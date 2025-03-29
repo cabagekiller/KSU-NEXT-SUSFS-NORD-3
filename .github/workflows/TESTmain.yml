@@ -84,6 +84,7 @@ jobs:
         mkdir -p toolchain
         cd toolchain
         git clone --depth=1 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/${{ env.TOOLCHAIN_VERSION }}
+        chmod +x ${{ env.TOOLCHAIN_VERSION }}/bin/*
 
     - name: Set up KernelSU Next
       if: ${{ inputs.KSUNEXT_ENABLED }}
@@ -162,11 +163,14 @@ jobs:
     - name: Set up build environment variables
       run: |
         echo "ARCH=arm64" >> $GITHUB_ENV
-        echo "CROSS_COMPILE=aarch64-linux-android-" >> $GITHUB_ENV
-        echo "PATH=$PATH:$(pwd)/toolchain/${{ env.TOOLCHAIN_VERSION }}/bin" >> $GITHUB_ENV
+        echo "CROSS_COMPILE=$(pwd)/toolchain/${{ env.TOOLCHAIN_VERSION }}/bin/aarch64-linux-android-" >> $GITHUB_ENV
+        echo "PATH=$(pwd)/toolchain/${{ env.TOOLCHAIN_VERSION }}/bin:$PATH" >> $GITHUB_ENV
         echo "CCACHE_DIR=$(pwd)/.ccache" >> $GITHUB_ENV
         echo "USE_CCACHE=1" >> $GITHUB_ENV
         echo "CCACHE_EXEC=/usr/bin/ccache" >> $GITHUB_ENV
+        # Verify toolchain is accessible
+        echo "Toolchain verification:"
+        $(pwd)/toolchain/${{ env.TOOLCHAIN_VERSION }}/bin/aarch64-linux-android-gcc --version || echo "Toolchain verification failed"
 
     - name: Show environment info
       working-directory: kernel_source
@@ -185,6 +189,12 @@ jobs:
     - name: Make defconfig
       working-directory: kernel_source
       run: |
+        # Verify environment
+        echo "Current PATH: $PATH"
+        echo "CROSS_COMPILE: $CROSS_COMPILE"
+        which aarch64-linux-android-gcc
+        aarch64-linux-android-gcc --version
+        
         make O=out ${{ env.DEFCONFIG }}
 
     - name: Build kernel
