@@ -83,15 +83,17 @@ jobs:
       run: |
         mkdir -p toolchain
         cd toolchain
-        git clone --depth=1 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/${{ env.TOOLCHAIN_VERSION }}
-        # New toolchain path structure
-        cd ${{ env.TOOLCHAIN_VERSION }}
-        # Find and set permissions on the compiler binaries
-        find . -type f -executable -name "*gcc*" -exec chmod +x {} \;
-        find . -type f -executable -name "*g++*" -exec chmod +x {} \;
-        # Verify we can find the compiler
-        if [ -f "bin/aarch64-linux-android-gcc" ]; then
-          echo "Compiler found at $(pwd)/bin/aarch64-linux-android-gcc"
+        # Use prebuilt toolchain from ARM instead
+        wget https://developer.arm.com/-/media/Files/downloads/gnu-a/10.3-2021.07/binrel/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu.tar.xz
+        tar xf gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu.tar.xz
+        mv gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu aarch64-linux-android-4.9
+        cd aarch64-linux-android-4.9
+        # Verify compiler
+        if [ -f "bin/aarch64-none-linux-gnu-gcc" ]; then
+          echo "Compiler found at $(pwd)/bin/aarch64-none-linux-gnu-gcc"
+          # Create symlinks for expected names
+          ln -s aarch64-none-linux-gnu-gcc bin/aarch64-linux-android-gcc
+          ln -s aarch64-none-linux-gnu-g++ bin/aarch64-linux-android-g++
         else
           echo "ERROR: Compiler not found!"
           find . -name "*gcc*"
@@ -176,21 +178,17 @@ jobs:
 
     - name: Set up build environment variables
       run: |
-        # Find the actual compiler path
-        COMPILER_PATH=$(find toolchain/${{ env.TOOLCHAIN_VERSION }} -name "aarch64-linux-android-gcc" | head -n 1)
-        COMPILER_DIR=$(dirname "$COMPILER_PATH")
-        
         echo "ARCH=arm64" >> $GITHUB_ENV
-        echo "CROSS_COMPILE=$COMPILER_DIR/aarch64-linux-android-" >> $GITHUB_ENV
-        echo "PATH=$COMPILER_DIR:$PATH" >> $GITHUB_ENV
+        echo "CROSS_COMPILE=$(pwd)/toolchain/${{ env.TOOLCHAIN_VERSION }}/bin/aarch64-none-linux-gnu-" >> $GITHUB_ENV
+        echo "PATH=$(pwd)/toolchain/${{ env.TOOLCHAIN_VERSION }}/bin:$PATH" >> $GITHUB_ENV
         echo "CCACHE_DIR=$(pwd)/.ccache" >> $GITHUB_ENV
         echo "USE_CCACHE=1" >> $GITHUB_ENV
         echo "CCACHE_EXEC=/usr/bin/ccache" >> $GITHUB_ENV
         
         # Verify setup
-        echo "Compiler path: $COMPILER_PATH"
-        $COMPILER_PATH --version || (echo "Compiler test failed!" && exit 1)
-
+        echo "Compiler path: $(pwd)/toolchain/${{ env.TOOLCHAIN_VERSION }}/bin/aarch64-none-linux-gnu-gcc"
+        $(pwd)/toolchain/${{ env.TOOLCHAIN_VERSION }}/bin/aarch64-none-linux-gnu-gcc --version || (echo "Compiler test failed!" && exit 1)
+        
     - name: Show environment info
       working-directory: kernel_source
       run: |
