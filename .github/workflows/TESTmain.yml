@@ -16,7 +16,7 @@ on:
       ANDROID_VERSION:
         description: 'Android version (e.g., 13, 14)'
         required: false
-        default: '13'
+        default: 'android13'
         type: string
       KERNEL_VERSION:
         description: 'Kernel version (e.g., 5.10, 5.15)'
