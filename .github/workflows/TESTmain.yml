@@ -60,7 +60,7 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-ccache-${{ env.TOOLCHAIN_VERSION }}-
 
-    - name: Download toolchain
+    - name: Check for toolchain cache
       uses: actions/cache@v3
       id: toolchain-cache
       with:
@@ -68,6 +68,8 @@ jobs:
         key: ${{ runner.os }}-toolchain-${{ env.TOOLCHAIN_VERSION }}-${{ hashFiles('**/Makefile') }}
         restore-keys: |
           ${{ runner.os }}-toolchain-${{ env.TOOLCHAIN_VERSION }}-
+
+    - name: Download toolchain
       if: steps.toolchain-cache.outputs.cache-hit != 'true'
       run: |
         mkdir -p toolchain
