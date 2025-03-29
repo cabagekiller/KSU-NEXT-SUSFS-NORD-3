@@ -242,4 +242,3 @@ jobs:
       with:
         name: build-failure-log
         path: build.log
-        path: build.log
