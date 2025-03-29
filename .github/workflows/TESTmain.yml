@@ -84,7 +84,19 @@ jobs:
         mkdir -p toolchain
         cd toolchain
         git clone --depth=1 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/${{ env.TOOLCHAIN_VERSION }}
-        chmod +x ${{ env.TOOLCHAIN_VERSION }}/bin/*
+        # New toolchain path structure
+        cd ${{ env.TOOLCHAIN_VERSION }}
+        # Find and set permissions on the compiler binaries
+        find . -type f -executable -name "*gcc*" -exec chmod +x {} \;
+        find . -type f -executable -name "*g++*" -exec chmod +x {} \;
+        # Verify we can find the compiler
+        if [ -f "bin/aarch64-linux-android-gcc" ]; then
+          echo "Compiler found at $(pwd)/bin/aarch64-linux-android-gcc"
+        else
+          echo "ERROR: Compiler not found!"
+          find . -name "*gcc*"
+          exit 1
+        fi
 
     - name: Set up KernelSU Next
       if: ${{ inputs.KSUNEXT_ENABLED }}
@@ -164,15 +176,20 @@ jobs:
 
     - name: Set up build environment variables
       run: |
+        # Find the actual compiler path
+        COMPILER_PATH=$(find toolchain/${{ env.TOOLCHAIN_VERSION }} -name "aarch64-linux-android-gcc" | head -n 1)
+        COMPILER_DIR=$(dirname "$COMPILER_PATH")
+        
         echo "ARCH=arm64" >> $GITHUB_ENV
-        echo "CROSS_COMPILE=$(pwd)/toolchain/${{ env.TOOLCHAIN_VERSION }}/bin/aarch64-linux-android-" >> $GITHUB_ENV
-        echo "PATH=$(pwd)/toolchain/${{ env.TOOLCHAIN_VERSION }}/bin:$PATH" >> $GITHUB_ENV
+        echo "CROSS_COMPILE=$COMPILER_DIR/aarch64-linux-android-" >> $GITHUB_ENV
+        echo "PATH=$COMPILER_DIR:$PATH" >> $GITHUB_ENV
         echo "CCACHE_DIR=$(pwd)/.ccache" >> $GITHUB_ENV
         echo "USE_CCACHE=1" >> $GITHUB_ENV
         echo "CCACHE_EXEC=/usr/bin/ccache" >> $GITHUB_ENV
-        # Verify toolchain is accessible
-        echo "Toolchain verification:"
-        $(pwd)/toolchain/${{ env.TOOLCHAIN_VERSION }}/bin/aarch64-linux-android-gcc --version || echo "Toolchain verification failed"
+        
+        # Verify setup
+        echo "Compiler path: $COMPILER_PATH"
+        $COMPILER_PATH --version || (echo "Compiler test failed!" && exit 1)
 
     - name: Show environment info
       working-directory: kernel_source
