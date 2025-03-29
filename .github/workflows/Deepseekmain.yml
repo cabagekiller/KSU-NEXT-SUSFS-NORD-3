@@ -58,18 +58,20 @@ jobs:
         submodules: recursive
         fetch-depth: 1
 
+    - name: Get OPlus modules
+      run: |
+        git clone --depth=1 \
+          https://github.com/OnePlusOSS/android_kernel_modules_oneplus_mt6983.git \
+          -b oneplus/mt6983_v_15.0.0_nord_3 \
+          oplus_modules
+        cp -r oplus_modules/* kernel_source/
+
     - name: Install proper toolchain
       run: |
         wget https://developer.arm.com/-/media/Files/downloads/gnu-a/10.3-2021.07/binrel/${{ env.TOOLCHAIN_VERSION }}.tar.xz
         tar xf ${{ env.TOOLCHAIN_VERSION }}.tar.xz
         echo "$(pwd)/${{ env.TOOLCHAIN_VERSION }}/bin" >> $GITHUB_PATH
         ${{ env.TOOLCHAIN_VERSION }}/bin/aarch64-none-linux-gnu-gcc --version
-
-    - name: Patch VDSO build
-      working-directory: kernel_source
-      run: |
-        sed -i 's/-march=armv8.1-a+nosimd/-march=armv8-a/' arch/arm64/kernel/vdso/Makefile
-        sed -i 's/-march=armv8-a+nosimd/-march=armv8-a/' arch/arm64/kernel/vdso/Makefile
 
     - name: Set up ccache
       uses: actions/cache@v3
