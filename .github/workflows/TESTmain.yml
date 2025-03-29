@@ -61,6 +61,14 @@ jobs:
         submodules: recursive
         fetch-depth: 1
 
+    - name: Get OPlus modules
+      run: |
+        git clone --depth=1 \
+          https://github.com/OnePlusOSS/android_kernel_modules_oneplus_mt6983.git \
+          -b oneplus/mt6983_v_15.0.0_nord_3 \
+          oplus_modules
+        cp -r oplus_modules/* kernel_source/
+
     - name: Set up ccache
       uses: actions/cache@v3
       with:
