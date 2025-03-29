@@ -202,13 +202,6 @@ jobs:
           echo "SUSFS enabled for Android ${{ github.event.inputs.ANDROID_VERSION }}, Kernel ${{ github.event.inputs.KERNEL_VERSION }}"
           echo "Modified defconfig with SUSFS settings"
         fi
-    - name: Patch Kconfig
-      working-directory: kernel_source
-      run: |
-        # Remove the problematic OPlus Kconfig reference
-        sed -i '/oplus_cpu\/sched\/Kconfig/d' init/Kconfig
-        # Verify the change
-        grep -A2 -B2 "oplus_cpu" init/Kconfig || echo "OPlus reference already removed"
     - name: Make defconfig
       working-directory: kernel_source
       run: |
