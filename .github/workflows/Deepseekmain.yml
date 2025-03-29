@@ -1,0 +1,144 @@
+name: Android Kernel CI Deepseek
+
+on:
+  workflow_dispatch:
+    inputs:
+      KSUNEXT_ENABLED:
+        description: 'Enable KernelSU Next integration'
+        required: false
+        default: false
+        type: boolean
+      SUSFS_ENABLED:
+        description: 'Enable SUSFS integration'
+        required: false
+        default: false
+        type: boolean
+      ANDROID_VERSION:
+        description: 'Android version (e.g., 13, 14)'
+        required: false
+        default: '14'
+        type: string
+      KERNEL_VERSION:
+        description: 'Kernel version (e.g., 5.10, 5.15)'
+        required: false
+        default: '5.10'
+        type: string
+
+env:
+  TOOLCHAIN_VERSION: "gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu"
+  DEFCONFIG: "oneplus/mt6983_v_15.0.0_nord_3_defconfig"
+  MAKE_FLAGS: "-j$(nproc --all)"
+  ARTIFACT_NAME: "kernel-$(date +'%Y%m%d-%H%M%S')"
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
+    
+    steps:
+    - name: Checkout workflow files
+      uses: actions/checkout@v4
+
+    - name: Set up build environment
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y --no-install-recommends \
+          git-core gnupg flex bison build-essential zip curl zlib1g-dev \
+          gcc-multilib g++-multilib libc6-dev-i386 lib32ncurses5-dev \
+          x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev \
+          libxml2-utils xsltproc unzip fontconfig python3 bc cpio rsync \
+          ccache libssl-dev patch wget
+
+    - name: Checkout kernel source
+      uses: actions/checkout@v4
+      with:
+        repository: OnePlusOSS/android_kernel_5.10_oneplus_mt6983
+        ref: oneplus/mt6983_v_15.0.0_nord_3
+        path: kernel_source
+        submodules: recursive
+        fetch-depth: 1
+
+    - name: Install proper toolchain
+      run: |
+        wget https://developer.arm.com/-/media/Files/downloads/gnu-a/10.3-2021.07/binrel/${{ env.TOOLCHAIN_VERSION }}.tar.xz
+        tar xf ${{ env.TOOLCHAIN_VERSION }}.tar.xz
+        echo "$(pwd)/${{ env.TOOLCHAIN_VERSION }}/bin" >> $GITHUB_PATH
+        ${{ env.TOOLCHAIN_VERSION }}/bin/aarch64-none-linux-gnu-gcc --version
+
+    - name: Patch VDSO build
+      working-directory: kernel_source
+      run: |
+        sed -i 's/-march=armv8.1-a+nosimd/-march=armv8-a/' arch/arm64/kernel/vdso/Makefile
+        sed -i 's/-march=armv8-a+nosimd/-march=armv8-a/' arch/arm64/kernel/vdso/Makefile
+
+    - name: Set up ccache
+      uses: actions/cache@v3
+      with:
+        path: ~/.ccache
+        key: ${{ runner.os }}-ccache-${{ env.TOOLCHAIN_VERSION }}-${{ hashFiles('kernel_source/**/Makefile') }}
+        restore-keys: |
+          ${{ runner.os }}-ccache-${{ env.TOOLCHAIN_VERSION }}-
+
+    - name: Set up build environment variables
+      run: |
+        echo "ARCH=arm64" >> $GITHUB_ENV
+        echo "CROSS_COMPILE=aarch64-none-linux-gnu-" >> $GITHUB_ENV
+        echo "PATH=$(pwd)/${{ env.TOOLCHAIN_VERSION }}/bin:$PATH" >> $GITHUB_ENV
+        echo "CCACHE_DIR=$(pwd)/.ccache" >> $GITHUB_ENV
+        echo "USE_CCACHE=1" >> $GITHUB_ENV
+        echo "CCACHE_EXEC=/usr/bin/ccache" >> $GITHUB_ENV
+
+    - name: Set up KernelSU Next
+      if: ${{ inputs.KSUNEXT_ENABLED }}
+      working-directory: kernel_source
+      run: |
+        curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -s next-susfs-dev
+        cd KernelSU-Next
+        KSU_VERSION=$(expr $(git rev-list --count HEAD) "+" 10200)
+        echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
+        sed -i "s/DKSU_VERSION=11998/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
+        cd ..
+
+    - name: Configure kernel
+      working-directory: kernel_source
+      run: |
+        make O=out ${{ env.DEFCONFIG }}
+        
+        if ${{ inputs.KSUNEXT_ENABLED }}; then
+          ./scripts/config --file out/.config -e CONFIG_KSU
+          ./scripts/config --file out/.config -e CONFIG_KSU_SUSFS
+        fi
+        
+        make O=out olddefconfig
+
+    - name: Build kernel
+      working-directory: kernel_source
+      run: |
+        make O=out ${{ env.MAKE_FLAGS }} 2>&1 | tee build.log
+
+    - name: Verify kernel image
+      working-directory: kernel_source
+      run: |
+        if [ -f "out/arch/arm64/boot/Image.gz-dtb" ]; then
+          echo "Kernel built successfully"
+          file out/arch/arm64/boot/Image.gz-dtb
+          if [ -n "$KSUVER" ]; then
+            echo "KernelSU Next version: $KSUVER"
+          fi
+        else
+          echo "Kernel image not found!"
+          exit 1
+        fi
+
+    - name: Package artifacts
+      run: |
+        mkdir -p artifacts
+        cp kernel_source/out/arch/arm64/boot/Image.gz-dtb artifacts/
+        cp kernel_source/out/.config artifacts/
+        cp kernel_source/build.log artifacts/
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.ARTIFACT_NAME }}
+        path: artifacts/*
