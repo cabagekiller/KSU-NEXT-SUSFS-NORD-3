@@ -65,7 +65,7 @@ jobs:
       uses: actions/cache@v3
       with:
         path: ~/.ccache
-        key: ${{ runner.os }}-ccache-${{ env.TOOLCHAIN_VERSION }}-${{ hashFiles('kernel_source/**/*.c', 'kernel_source/**/*.h', 'kernel_source/**/Makefile') }}
+        key: ${{ runner.os }}-ccache-${{ env.TOOLCHAIN_VERSION }}-${{ hashFiles('kernel_source/**/Makefile') }}
         restore-keys: |
           ${{ runner.os }}-ccache-${{ env.TOOLCHAIN_VERSION }}-
 
@@ -77,7 +77,7 @@ jobs:
         key: ${{ runner.os }}-toolchain-${{ env.TOOLCHAIN_VERSION }}-${{ hashFiles('kernel_source/**/Makefile') }}
         restore-keys: |
           ${{ runner.os }}-toolchain-${{ env.TOOLCHAIN_VERSION }}-
-
+          
     - name: Download toolchain
       if: steps.toolchain-cache.outputs.cache-hit != 'true'
       run: |
