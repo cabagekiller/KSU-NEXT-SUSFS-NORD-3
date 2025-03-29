@@ -52,11 +52,20 @@ jobs:
           libxml2-utils xsltproc unzip fontconfig python3 bc cpio rsync \
           ccache libssl-dev patch
 
+    - name: Checkout kernel source
+      uses: actions/checkout@v4
+      with:
+        repository: OnePlusOSS/android_kernel_5.10_oneplus_mt6983
+        ref: oneplus/mt6983_v_15.0.0_nord_3
+        path: kernel_source
+        submodules: recursive
+        fetch-depth: 1
+
     - name: Set up ccache
       uses: actions/cache@v3
       with:
         path: ~/.ccache
-        key: ${{ runner.os }}-ccache-${{ env.TOOLCHAIN_VERSION }}-${{ hashFiles('**/*.c', '**/*.h', '**/Makefile') }}
+        key: ${{ runner.os }}-ccache-${{ env.TOOLCHAIN_VERSION }}-${{ hashFiles('kernel_source/**/*.c', 'kernel_source/**/*.h', 'kernel_source/**/Makefile') }}
         restore-keys: |
           ${{ runner.os }}-ccache-${{ env.TOOLCHAIN_VERSION }}-
 
@@ -65,7 +74,7 @@ jobs:
       id: toolchain-cache
       with:
         path: toolchain/${{ env.TOOLCHAIN_VERSION }}
-        key: ${{ runner.os }}-toolchain-${{ env.TOOLCHAIN_VERSION }}-${{ hashFiles('**/Makefile') }}
+        key: ${{ runner.os }}-toolchain-${{ env.TOOLCHAIN_VERSION }}-${{ hashFiles('kernel_source/**/Makefile') }}
         restore-keys: |
           ${{ runner.os }}-toolchain-${{ env.TOOLCHAIN_VERSION }}-
 
@@ -78,6 +87,7 @@ jobs:
 
     - name: Set up KernelSU Next
       if: ${{ inputs.KSUNEXT_ENABLED }}
+      working-directory: kernel_source
       run: |
         curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -s next-susfs-dev
         cd KernelSU-Next
@@ -88,6 +98,7 @@ jobs:
 
     - name: Set up SUSFS
       if: ${{ inputs.SUSFS_ENABLED }}
+      working-directory: kernel_source
       run: |
         git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}
         git clone https://github.com/cabagekiller/kernel_patches.git
@@ -112,6 +123,7 @@ jobs:
 
     - name: Configure Kernel Defconfig
       if: ${{ inputs.KSUNEXT_ENABLED || inputs.SUSFS_ENABLED }}
+      working-directory: kernel_source
       run: |
         # Basic KernelSU and SUSFS configs
         echo "CONFIG_KSU=y" >> ./arch/arm64/configs/gki_defconfig
@@ -142,9 +154,10 @@ jobs:
         echo "CONFIG_IP6_NF_MATCH_HL=y" >> ./arch/arm64/configs/gki_defconfig
         
         # Remove defconfig check if SUSFS is enabled
-        if [ "${{ github.event.inputs.SUSFS_ENABLED }}" = "true" ]; then
+        if ${{ inputs.SUSFS_ENABLED }}; then
           sed -i '2s/check_defconfig//' ./build.config.gki || true
         fi
+
 
     - name: Set up build environment variables
       run: |
@@ -156,6 +169,7 @@ jobs:
         echo "CCACHE_EXEC=/usr/bin/ccache" >> $GITHUB_ENV
 
     - name: Show environment info
+      working-directory: kernel_source
       run: |
         echo "Toolchain path: $(pwd)/toolchain/${{ env.TOOLCHAIN_VERSION }}/bin"
         echo "CCACHE stats:"
@@ -163,21 +177,24 @@ jobs:
         if [ -n "$KSUVER" ]; then
           echo "KernelSU Next version: $KSUVER"
         fi
-        if [ "${{ github.event.inputs.SUSFS_ENABLED }}" = "true" ]; then
+        if ${{ inputs.SUSFS_ENABLED }}; then
           echo "SUSFS enabled for Android ${{ github.event.inputs.ANDROID_VERSION }}, Kernel ${{ github.event.inputs.KERNEL_VERSION }}"
           echo "Modified defconfig with SUSFS settings"
         fi
 
     - name: Make defconfig
+      working-directory: kernel_source
       run: |
         make O=out ${{ env.DEFCONFIG }}
 
     - name: Build kernel
+      working-directory: kernel_source
       run: |
         make O=out ${{ env.MAKE_FLAGS }} 2>&1 | tee build.log
         
 
     - name: Prepare kernel image
+      working-directory: kernel_source
       run: |
         mkdir -p kernel_output
         cp out/arch/arm64/boot/Image.gz-dtb kernel_output/Image.gz-dtb
