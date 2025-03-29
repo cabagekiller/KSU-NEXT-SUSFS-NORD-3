@@ -101,6 +101,8 @@ jobs:
       if: ${{ inputs.SUSFS_ENABLED }}
       working-directory: kernel_source
       run: |
+        git config --global user.name "GitHub Actions Bot"
+        git config --global user.email "actions@github.com"
         git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}
         git clone https://github.com/cabagekiller/kernel_patches.git
         #cp susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./KernelSU-Next/
@@ -195,7 +197,20 @@ jobs:
         which aarch64-linux-android-gcc
         aarch64-linux-android-gcc --version
         
-        make O=out ${{ env.DEFCONFIG }}
+        # Create output directory and copy config
+        mkdir -p out
+        cp arch/arm64/configs/gki_defconfig out/.config
+        
+        # Apply any modifications
+        if [ -n "$(grep 'CONFIG_KSU=y' out/.config)" ]; then
+          echo "KernelSU config already present"
+        else
+          echo "Applying KernelSU config"
+          echo "CONFIG_KSU=y" >> out/.config
+        fi
+        
+        # Finalize config
+        make O=out olddefconfig
 
     - name: Build kernel
       working-directory: kernel_source
