@@ -56,16 +56,22 @@ jobs:
       run: |
         git clone --depth=1 \
           --branch ${{ env.KERNEL_BRANCH }} \
-          --recurse-submodules \
           ${{ env.KERNEL_REPO }} \
           kernel_source
-
-    - name: Get OPlus modules
+    
+    - name: Clone OnePlus modules and merge into kernel_source
       run: |
-        cd kernel_source
+        # Clone the modules repo into a temp dir
         git clone --depth=1 \
           https://github.com/OnePlusOSS/android_kernel_modules_oneplus_mt6983.git \
-          -b oneplus/mt6983_v_15.0.0_nord_3
+          -b oneplus/mt6983_v_15.0.0_nord_3 \
+          tmp_modules
+    
+        # Move all files/folders from tmp_modules into kernel_source
+        # (Exclude .git to avoid conflicts)
+        shopt -s dotglob  # Include hidden files (except .git)
+        mv tmp_modules/* kernel_source/
+        rm -rf tmp_modules
 
     - name: Set up ccache
       uses: actions/cache@v3
