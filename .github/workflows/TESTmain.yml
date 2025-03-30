@@ -89,7 +89,13 @@ jobs:
         rm -rf tmp_modules
         cd kernel_source
         ls -a
-
+    - name: Fix symlinks
+      run: |
+        find . -type l | while read -r symlink; do
+          target=$(readlink "$symlink")
+          rm "$symlink"
+          ln -s "$target" "$symlink"
+        done
     - name: Set up ccache
       uses: actions/cache@v3
       with:
