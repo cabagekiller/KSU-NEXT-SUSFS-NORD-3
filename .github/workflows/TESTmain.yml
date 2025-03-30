@@ -59,18 +59,33 @@ jobs:
           ${{ env.KERNEL_REPO }} \
           kernel_source
     
-    - name: Clone OnePlus modules and merge into kernel_source
+    - name: Clone and merge OnePlus modules
       run: |
-        # Clone the modules repo into a temp dir
+        # Clone modules to temp dir
         git clone --depth=1 \
           https://github.com/OnePlusOSS/android_kernel_modules_oneplus_mt6983.git \
           -b oneplus/mt6983_v_15.0.0_nord_3 \
           tmp_modules
     
-        # Move all files/folders from tmp_modules into kernel_source
-        # (Exclude .git to avoid conflicts)
-        shopt -s dotglob  # Include hidden files (except .git)
-        mv tmp_modules/* kernel_source/
+        # Move contents selectively (excluding .git and handling conflicts)
+        cd tmp_modules
+        find . -maxdepth 1 ! -name .git ! -name . -exec sh -c '
+          for item do
+            if [ -e "../kernel_source/${item}" ]; then
+              if [ -d "${item}" ]; then
+                # Merge directories
+                cp -r "${item}/"* "../kernel_source/${item}/"
+              else
+                # Overwrite files
+                cp -f "${item}" "../kernel_source/${item}"
+              fi
+            else
+              # Move new items
+              mv "${item}" "../kernel_source/"
+            fi
+          done
+        ' sh {} +
+        cd ..
         rm -rf tmp_modules
 
     - name: Set up ccache
