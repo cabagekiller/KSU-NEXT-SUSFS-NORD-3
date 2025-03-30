@@ -87,6 +87,8 @@ jobs:
         ' sh {} +
         cd ..
         rm -rf tmp_modules
+        cd kernel_source
+        ls -a
 
     - name: Set up ccache
       uses: actions/cache@v3
