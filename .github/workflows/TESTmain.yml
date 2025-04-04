@@ -44,6 +44,10 @@ jobs:
       with:
         sparse-checkout: none  # This preserves symlinks
 
+    - name: Ensure symlink support
+      run: |
+        sudo mount -o remount,exec /tmp
+
     - name: Set up build environment
       run: |
         sudo apt-get update -qq
