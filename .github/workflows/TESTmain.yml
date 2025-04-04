@@ -110,14 +110,6 @@ jobs:
           # fi
         done
         
-        # Special handling for common kernel symlinks
-        # Use -L to check if the *link itself* exists, or just use -f with ln
-        if [ ! -e "kernel/oplus_cpu" ]; then # Or use: if [ ! -L "kernel/oplus_cpu" ]; then
-          echo "Creating missing oplus_cpu symlink"
-          mkdir -p kernel
-          # Use -f to force creation, overwriting if necessary
-          ln -sf ../oplus_cpu kernel/oplus_cpu
-        fi
     - name: Set up ccache
       uses: actions/cache@v3
       with:
