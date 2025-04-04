@@ -44,9 +44,8 @@ jobs:
       with:
         sparse-checkout: none  # This preserves symlinks
 
-    - name: Ensure symlink support
-      run: |
-        sudo mount -o remount,exec /tmp
+    - name: Verify symlinks
+      run: find . -type l -exec ls -la {} +
 
     - name: Set up build environment
       run: |
