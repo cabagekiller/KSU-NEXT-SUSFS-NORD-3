@@ -100,16 +100,23 @@ jobs:
         # Find all broken symlinks and recreate them
         find . -type l ! -exec test -e {} \; -print | while read -r broken_symlink; do
           target=$(readlink "$broken_symlink")
-          echo "Fixing $broken_symlink -> $target"
-          rm "$broken_symlink"
-          ln -s "$target" "$broken_symlink"
+          # Optional: Add a check here if the target *actually* exists now
+          # if [ -e "$(dirname "$broken_symlink")/$target" ]; then # Basic relative path check
+              echo "Fixing $broken_symlink -> $target"
+              rm "$broken_symlink"
+              ln -s "$target" "$broken_symlink"
+          # else
+          #    echo "Skipping $broken_symlink -> $target (Target still missing)"
+          # fi
         done
         
         # Special handling for common kernel symlinks
-        if [ ! -e "kernel/oplus_cpu" ]; then
+        # Use -L to check if the *link itself* exists, or just use -f with ln
+        if [ ! -e "kernel/oplus_cpu" ]; then # Or use: if [ ! -L "kernel/oplus_cpu" ]; then
           echo "Creating missing oplus_cpu symlink"
           mkdir -p kernel
-          ln -s ../oplus_cpu kernel/oplus_cpu
+          # Use -f to force creation, overwriting if necessary
+          ln -sf ../oplus_cpu kernel/oplus_cpu
         fi
     - name: Set up ccache
       uses: actions/cache@v3
