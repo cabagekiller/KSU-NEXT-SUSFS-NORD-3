@@ -41,6 +41,8 @@ jobs:
     - name: Configure Git to use symlinks
       run: git config --global core.symlinks true
     - uses: actions/checkout@v4
+      with:
+        sparse-checkout: none  # This preserves symlinks
 
     - name: Set up build environment
       run: |
