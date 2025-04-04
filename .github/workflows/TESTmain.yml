@@ -39,14 +39,14 @@ jobs:
     
     steps:
     - name: Configure Git to use symlinks
-      run: git config --global core.symlinks true
+      run: | 
+         git config --global core.symlinks true
+         git config --global protocol.file.allow always
     - uses: actions/checkout@v4
       with:
         sparse-checkout: none  # This preserves symlinks
-
-    - name: Verify symlinks
-      run: find . -type l -exec ls -la {} +
-
+        fetch-depth: 0
+      
     - name: Set up build environment
       run: |
         sudo apt-get update -qq
@@ -94,13 +94,23 @@ jobs:
         rm -rf tmp_modules
         cd kernel_source
         ls -a
-    - name: Fix symlinks
+    - name: Repair kernel source symlinks
+      working-directory: kernel_source
       run: |
-        find . -type l | while read -r symlink; do
-          target=$(readlink "$symlink")
-          rm "$symlink"
-          ln -s "$target" "$symlink"
+        # Find all broken symlinks and recreate them
+        find . -type l ! -exec test -e {} \; -print | while read -r broken_symlink; do
+          target=$(readlink "$broken_symlink")
+          echo "Fixing $broken_symlink -> $target"
+          rm "$broken_symlink"
+          ln -s "$target" "$broken_symlink"
         done
+        
+        # Special handling for common kernel symlinks
+        if [ ! -e "kernel/oplus_cpu" ]; then
+          echo "Creating missing oplus_cpu symlink"
+          mkdir -p kernel
+          ln -s ../oplus_cpu kernel/oplus_cpu
+        fi
     - name: Set up ccache
       uses: actions/cache@v3
       with:
