@@ -109,6 +109,51 @@ jobs:
           #    echo "Skipping $broken_symlink -> $target (Target still missing)"
           # fi
         done
+    - name: Fix kernel/oplus_cpu (replace file with symlink)
+      run: |
+        cd /home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source || exit 1
+
+        # Define the link path and the target path (relative to the link's location)
+        LINK_PATH="kernel/oplus_cpu"
+        TARGET_PATH="../../vendor/oplus/kernel/cpu"
+
+        # Define the absolute path to the target for verification
+        ABS_TARGET_DIR="/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/vendor/oplus/kernel/cpu" # Adjust if base path is different
+
+        echo "--- Checking state before fix ---"
+        ls -ld "$LINK_PATH" || echo "$LINK_PATH does not exist"
+        
+        # Verify the target directory exists
+        if [ ! -d "$ABS_TARGET_DIR" ]; then
+            echo "ERROR: Target directory $ABS_TARGET_DIR does not exist!"
+            echo "Check source checkout steps for vendor code."
+            ls -la /home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/ # List parent dir contents
+            exit 1
+        fi
+
+        # Verify the required Kconfig file exists in the target
+        if [ ! -f "$ABS_TARGET_DIR/sched/Kconfig" ]; then
+            echo "ERROR: Required file $ABS_TARGET_DIR/sched/Kconfig not found!"
+            echo "Check source checkout or branch."
+            exit 1
+        fi
+
+        # Remove the incorrect file (or potentially a directory/bad link)
+        # Use -f to avoid errors if it doesn't exist for some reason
+        echo "Removing $LINK_PATH if it exists..."
+        rm -rf "$LINK_PATH"
+
+        # Create the correct symbolic link
+        # Use -f with ln to force overwrite if needed, although rm should have cleared it
+        echo "Creating symbolic link: $LINK_PATH -> $TARGET_PATH"
+        ln -sf "$TARGET_PATH" "$LINK_PATH"
+    
+        echo "--- Checking state after fix ---"
+        ls -ld "$LINK_PATH"
+        echo "--- Verifying link target contains sched/Kconfig ---"
+        ls -l "$LINK_PATH/sched/Kconfig" || echo "ERROR: Could not find Kconfig via new link!"
+    
+      shell: bash
         
     - name: Set up ccache
       uses: actions/cache@v3
