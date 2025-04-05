@@ -121,73 +121,92 @@ jobs:
           #    echo "Skipping $broken_symlink -> $target (Target still missing)"
           # fi
         done
-    - name: Automatically fix vendor symlinks based on placeholder files
+    - name: Automatically fix vendor symlinks based on placeholder files AND add specific fixes
       run: |
         #!/usr/bin/env bash
-        set -e # Exit immediately if a command exits with a non-zero status.
+        # set -e # Temporarily disable exit on error for the potentially buggy auto part
 
         echo "Starting automated symlink fix based on placeholder files..."
         # Ensure we are in the kernel source directory
         cd /home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source || exit 1
         echo "Current directory: $(pwd)"
 
-        # Find regular files within common kernel paths
-        # Use print0/read -d for safer filename handling
+        # --- Automated Fix Logic (Potentially Buggy - may still show warnings) ---
         find . \( -path './drivers' -o -path './kernel' -o -path './mm' -o -path './fs' -o -path './sound' \) -prune \
              -o -type f -print0 | \
         while IFS= read -r -d $'\0' placeholder_file; do
-          # Check if file content looks like a relative path starting with ../
-          # Use head -c to avoid reading huge files; check for actual content
           placeholder_content=$(head -n 1 "$placeholder_file" 2>/dev/null || true) # Read first line
           if [[ "$placeholder_content" == ../* ]]; then
-            target_path="$placeholder_content" # Use the content as the relative target path
+            target_path="$placeholder_content"
+            abs_placeholder_dir=$(realpath "$(dirname "$placeholder_file")" 2>/dev/null || true) # Suppress realpath errors potentially
+            if [ -z "$abs_placeholder_dir" ]; then # If realpath failed
+                echo "Warning: realpath failed for dirname of $placeholder_file, skipping automated fix."
+                continue
+            fi
+            abs_target_dir=$(realpath -m "$abs_placeholder_dir/$target_path" 2>/dev/null || true) # Suppress realpath errors potentially
+            if [ -z "$abs_target_dir" ]; then # If realpath failed
+                echo "Warning: realpath failed for target of $placeholder_file, skipping automated fix."
+                continue
+            fi
 
-            # Calculate absolute path of the target directory for verification
-            # Need the absolute path of the placeholder's directory first
-            abs_placeholder_dir=$(realpath "$(dirname "$placeholder_file")")
-            abs_target_dir=$(realpath -m "$abs_placeholder_dir/$target_path") # -m computes path even if target doesn't exist yet
-
-            # Check if the calculated target directory actually exists NOW (after merge)
             if [ -d "$abs_target_dir" ]; then
-              # Optional but recommended: Check if Kconfig exists in the target directory
               if [ -f "$abs_target_dir/Kconfig" ]; then
-                 echo "Fixing: '$placeholder_file' -> '$target_path' (Target: $abs_target_dir)"
-                 # Ensure parent dir for link exists
+                 echo "Fixing (Auto): '$placeholder_file' -> '$target_path'"
                  mkdir -p "$(dirname "$placeholder_file")"
-                 # Remove placeholder and create link using the RELATIVE target path
                  rm -f "$placeholder_file"
-                 ln -svf "$target_path" "$placeholder_file" # -v for verbose output
+                 ln -svf "$target_path" "$placeholder_file"
               else
-                 echo "WARNING: Target directory '$abs_target_dir' exists, but Kconfig missing. Skipping link for '$placeholder_file'."
+                 echo "WARNING (Auto): Target '$abs_target_dir' exists, but Kconfig missing. Skipping '$placeholder_file'."
               fi
             else
-              # This case means the placeholder file points to a non-existent location after merge
-              echo "INFO: Placeholder '$placeholder_file' points to '$target_path' (resolves to '$abs_target_dir'), but target does not exist or is not a directory. Skipping."
+              echo "INFO (Auto): Placeholder '$placeholder_file' points to non-existent target '$abs_target_dir'. Skipping."
             fi
-          # else
-            # Optional: Uncomment below to see files that were checked but didn't match pattern
-            # echo "DEBUG: Skipping '$placeholder_file' - content doesn't start with '../'."
           fi
-        done
+        done || echo "Warning: Automated symlink processing encountered errors or warnings." # Allow script to continue even if find/while fails
+        echo "Finished automated symlink fix attempt."
+        # --- End Automated Fix Logic ---
 
-        echo "Finished automated symlink fix."
+        # Re-enable exit on error for manual fixes
+        set -e
 
-        # --- Add Specific Manual Fixes IF NEEDED ---
-        # If there are known links that DON'T have placeholder files, add them here.
-        # Example: If 'kernel/oplus_cpu' never had a placeholder file:
-        # LINK_PATH_CPU="kernel/oplus_cpu"
-        # TARGET_PATH_CPU="../vendor/oplus/kernel/cpu" # Adjust if needed
-        # ABS_TARGET_DIR_CPU="${PWD}/vendor/oplus/kernel/cpu" # Adjust if needed
-        # echo "Applying specific fix for non-placeholder $LINK_PATH_CPU"
-        # if [ ! -e "$LINK_PATH_CPU" ] && [ ! -L "$LINK_PATH_CPU" ] && [ -d "$ABS_TARGET_DIR_CPU" ]; then
-        #    echo "Creating missing link $LINK_PATH_CPU -> $TARGET_PATH_CPU"
-        #    mkdir -p "$(dirname "$LINK_PATH_CPU")"
-        #    ln -svf "$TARGET_PATH_CPU" "$LINK_PATH_CPU"
-        # elif [ -d "$ABS_TARGET_DIR_CPU" ]; then
-        #    echo "$LINK_PATH_CPU already exists or target missing."
-        #    ls -ld "$LINK_PATH_CPU" || true
-        # fi
-        # --- End Specific Manual Fixes ---
+        # --- Add Specific Manual Fixes ---
+        echo "Applying specific manual symlink fixes..."
+
+        # Fix for kernel/oplus_cpu  <--- THIS IS NOW ACTIVE ---
+        LINK_PATH_CPU="kernel/oplus_cpu"
+        # Assuming target is vendor/oplus/kernel/cpu based on initial errors
+        TARGET_PATH_CPU="../vendor/oplus/kernel/cpu"
+        ABS_TARGET_DIR_CPU="${PWD}/vendor/oplus/kernel/cpu"
+        KCONFIG_SUBPATH_CPU="sched/Kconfig" # Specific Kconfig needed
+
+        echo "Checking specific fix for $LINK_PATH_CPU -> $TARGET_PATH_CPU"
+        # Check if target exists and has the specific Kconfig
+        if [ -d "$ABS_TARGET_DIR_CPU" ] && [ -f "$ABS_TARGET_DIR_CPU/$KCONFIG_SUBPATH_CPU" ]; then
+            # Check if link doesn't exist or is not a symlink
+            if [ ! -L "$LINK_PATH_CPU" ]; then # Use -L to specifically check for a symlink
+                echo "Creating/Fixing link $LINK_PATH_CPU -> $TARGET_PATH_CPU"
+                mkdir -p "$(dirname "$LINK_PATH_CPU")"
+                # Remove if it exists but isn't a symlink
+                if [ -e "$LINK_PATH_CPU" ]; then
+                    rm -rf "$LINK_PATH_CPU"
+                fi
+                ln -svf "$TARGET_PATH_CPU" "$LINK_PATH_CPU"
+                ls -ld "$LINK_PATH_CPU" # Verify link
+                ls -l "$LINK_PATH_CPU/$KCONFIG_SUBPATH_CPU" || echo "ERROR: Could not find Kconfig via new link!"
+            else
+                echo "$LINK_PATH_CPU symlink already exists and seems correct. Verifying target..."
+                ls -ld "$LINK_PATH_CPU" # Show existing link
+                ls -l "$LINK_PATH_CPU/$KCONFIG_SUBPATH_CPU" || echo "ERROR: Kconfig missing via existing link!"
+            fi
+        else
+            echo "WARNING: Target directory '$ABS_TARGET_DIR_CPU' or '$KCONFIG_SUBPATH_CPU' missing for $LINK_PATH_CPU. Cannot create link."
+            ls -ld "$ABS_TARGET_DIR_CPU" || true # Show target status
+        fi
+        echo "-------------------------------------"
+
+        # Add other manual fixes here if the automated part remains unreliable for them
+
+        echo "Finished specific manual symlink fixes."
 
       shell: bash
     - name: Set up ccache
