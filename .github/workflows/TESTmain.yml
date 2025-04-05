@@ -111,48 +111,59 @@ jobs:
         done
     - name: Fix kernel/oplus_cpu (replace file with symlink)
       run: |
+        # Go into the main kernel source directory
         cd /home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source || exit 1
 
-        # Define the link path and the target path (relative to the link's location)
+        # Define the link path (relative to current dir: kernel_source)
         LINK_PATH="kernel/oplus_cpu"
-        TARGET_PATH="../../vendor/oplus/kernel/cpu"
 
-        # Define the absolute path to the target for verification
-        ABS_TARGET_DIR="/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus/kernel/cpu" # Adjust if base path is different
+        # --- CORRECTED ---
+        # Define the target path RELATIVE TO THE LINK'S LOCATION (kernel_source/kernel/)
+        # Path goes up one level to kernel_source, then down into vendor/oplus/kernel/cpu
+        TARGET_PATH="../vendor/oplus/kernel/cpu"
+
+        # --- CORRECTED ---
+        # Define the absolute path to the target directory INSIDE kernel_source for verification
+        ABS_TARGET_DIR="/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus/kernel/cpu"
 
         echo "--- Checking state before fix ---"
         ls -ld "$LINK_PATH" || echo "$LINK_PATH does not exist"
-        
-        # Verify the target directory exists
+
+        # Verify the target directory exists AT THE CORRECT EXPECTED LOCATION (inside kernel_source/vendor)
         if [ ! -d "$ABS_TARGET_DIR" ]; then
-            echo "ERROR: Target directory $ABS_TARGET_DIR does not exist!"
-            echo "Check source checkout steps for vendor code."
-            ls -la /home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source # List parent dir contents
+            echo "ERROR: Target directory $ABS_TARGET_DIR (inside kernel_source/vendor) does not exist!"
+            echo "Check 'Clone and merge OnePlus modules' step and the modules repo structure."
+            echo "--- Listing contents of kernel_source ---"
+            ls -la "/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source"
+            echo "--- Listing contents of kernel_source/vendor ---"
+            ls -la "/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor" || echo "kernel_source/vendor not found"
             exit 1
         fi
 
-        # Verify the required Kconfig file exists in the target
+        # Verify the required Kconfig file exists in the target AT THE CORRECT EXPECTED LOCATION
         if [ ! -f "$ABS_TARGET_DIR/sched/Kconfig" ]; then
             echo "ERROR: Required file $ABS_TARGET_DIR/sched/Kconfig not found!"
-            echo "Check source checkout or branch."
+            echo "Check source checkout or branch in modules repo."
             exit 1
         fi
 
-        # Remove the incorrect file (or potentially a directory/bad link)
-        # Use -f to avoid errors if it doesn't exist for some reason
+        # Ensure kernel directory exists (where the link will be placed)
+        mkdir -p kernel
+
+        # Remove the incorrect file/link/directory if it exists
         echo "Removing $LINK_PATH if it exists..."
         rm -rf "$LINK_PATH"
 
-        # Create the correct symbolic link
-        # Use -f with ln to force overwrite if needed, although rm should have cleared it
+        # Create the correct symbolic link pointing INSIDE kernel_source/vendor/...
         echo "Creating symbolic link: $LINK_PATH -> $TARGET_PATH"
         ln -sf "$TARGET_PATH" "$LINK_PATH"
-    
+
         echo "--- Checking state after fix ---"
         ls -ld "$LINK_PATH"
         echo "--- Verifying link target contains sched/Kconfig ---"
+        # This uses the link, which should now point correctly
         ls -l "$LINK_PATH/sched/Kconfig" || echo "ERROR: Could not find Kconfig via new link!"
-    
+
       shell: bash
         
     - name: Set up ccache
