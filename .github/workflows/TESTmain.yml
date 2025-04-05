@@ -353,56 +353,47 @@ jobs:
 
       shell: bash
 
-    - name: Fix drivers/.../oplus_sensor_devinfo symlink (targeting sensorhub)
+    - name: Fix drivers/.../oplus_sensor_devinfo symlink (CORRECTED TARGET)
       run: |
         # Go into the main kernel source directory
         cd /home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source || exit 1
 
         # Define the link path (relative to current dir: kernel_source)
-        # Correcting potential typo driver -> drivers
         LINK_PATH="drivers/misc/mediatek/sensor/2.0/oplus_sensor_devinfo"
 
-        # --- TARGET based on file content ---
+        # --- CORRECTED TARGET based on ls -lR evidence ---
         # Define the target path RELATIVE TO THE LINK'S LOCATION (kernel_source/drivers/misc/mediatek/sensor/2.0/)
-        # Path goes up 6 levels to workspace root, then down into vendor/oplus/sensor/kernel/sensorhub/oplus_sensor_devinfo
-        TARGET_PATH="../../../../../../vendor/oplus/sensor/kernel/sensorhub/oplus_sensor_devinfo"
+        # Path goes up 5 levels to kernel_source, then down into vendor/oplus/sensor/kernel/sensorhub/oplus_sensor_devinfo
+        TARGET_PATH="../../../../../vendor/oplus/sensor/kernel/sensorhub/oplus_sensor_devinfo"
 
-        # --- TARGET based on file content ---
-        # Define the absolute path to the target directory OUTSIDE kernel_source for verification
+        # --- CORRECTED TARGET based on ls -lR evidence ---
+        # Define the absolute path to the target directory INSIDE kernel_source/vendor for verification
         ABS_TARGET_DIR="/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus/sensor/kernel/sensorhub/oplus_sensor_devinfo"
 
         echo "--- Checking state before fix for $LINK_PATH ---"
         ls -ld "$LINK_PATH" || echo "$LINK_PATH does not exist"
-        # Add check in case it's a file containing the path
-        if [ -f "$LINK_PATH" ] && [ ! -L "$LINK_PATH" ]; then
-           echo "WARNING: $LINK_PATH is a regular file. Content:"
-           cat "$LINK_PATH"
-        fi
 
-        # Verify the target directory exists AT THE CORRECT EXPECTED LOCATION (under vendor/oplus/sensor)
+        # Verify the target directory exists AT THE CORRECT ACTUAL LOCATION
         if [ ! -d "$ABS_TARGET_DIR" ]; then
-            echo "ERROR: Target directory $ABS_TARGET_DIR (sensorhub) does not exist!"
-            echo "Check 'Clone and merge OnePlus modules' step and the modules repo structure. Note the 'vendor/oplus/sensor' path!"
-            echo "--- Listing contents of /home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus/sensor/kernel/sensorhub ---"
-            ls -la "/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus/sensor/kernel/sensorhub" || echo "Parent sensorhub vendor dir not found"
+            echo "ERROR: Target directory $ABS_TARGET_DIR (actual location) does not exist!"
+            echo "This should not happen if the ls -lR was correct. Check merge step again."
             exit 1
         fi
 
         # Verify the required Kconfig file exists in the target
         if [ ! -f "$ABS_TARGET_DIR/Kconfig" ]; then
             echo "ERROR: Required file $ABS_TARGET_DIR/Kconfig not found!"
-            echo "Check source checkout or branch in modules repo."
             exit 1
         fi
 
-        # Ensure parent directory for link exists (drivers/misc/mediatek/sensor/2.0)
-        mkdir -p drivers/misc/mediatek/sensor/2.0
+        # Ensure parent directory for link exists
+        mkdir -p "$(dirname "$LINK_PATH")" # Use dirname for robustness
 
         # Remove the incorrect file/link/directory if it exists
         echo "Removing $LINK_PATH if it exists..."
         rm -rf "$LINK_PATH"
 
-        # Create the correct symbolic link pointing to the vendor sensorhub directory
+        # Create the correct symbolic link pointing to the ACTUAL location
         echo "Creating symbolic link: $LINK_PATH -> $TARGET_PATH"
         ln -sf "$TARGET_PATH" "$LINK_PATH"
 
