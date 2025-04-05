@@ -404,27 +404,28 @@ jobs:
         ls -l "$LINK_PATH/Kconfig" || echo "ERROR: Could not find Kconfig via new link!"
 
       shell: bash
-    - name: Fix drivers/.../oplus_sensor_feedback symlink (targeting sensorhub) - MORE DEBUG
+    - name: Fix drivers/.../oplus_sensor_feedback symlink (CORRECTED TARGET INSIDE)
       run: |
-        echo "++++ STARTING feedback fix ++++"
+        echo "++++ STARTING feedback fix (Corrected Target INSIDE) ++++"
         # Go into the main kernel source directory
         cd /home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source || exit 1
 
         # Define the link path
         LINK_PATH="drivers/misc/mediatek/sensor/2.0/oplus_sensor_feedback"
 
-        # Define the relative target path
-        TARGET_PATH="../../../../../../vendor/oplus/sensor/kernel/sensorhub/oplus_sensor_feedback"
+        # --- CORRECTED TARGET PATH ---
+        # Define the target path RELATIVE TO THE LINK'S LOCATION (kernel_source/drivers/misc/mediatek/sensor/2.0/)
+        # Path goes up 5 levels to kernel_source, then down into vendor/oplus/sensor/kernel/sensorhub/oplus_sensor_feedback
+        TARGET_PATH="../../../../../vendor/oplus/sensor/kernel/sensorhub/oplus_sensor_feedback"
 
-        # Define the absolute target path
+        # --- CORRECTED TARGET PATH ---
+        # Define the absolute path to the target directory INSIDE kernel_source/vendor for verification
         ABS_TARGET_DIR="/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus/sensor/kernel/sensorhub/oplus_sensor_feedback"
 
-        # --- Verification of ABS target BEFORE link creation ---
         echo "Verifying ABS target BEFORE link: $ABS_TARGET_DIR"
-        if [ ! -d "$ABS_TARGET_DIR" ]; then echo "ERROR: ABS Target Dir MISSING before link!"; exit 1; fi
-        if [ ! -f "$ABS_TARGET_DIR/Kconfig" ]; then echo "ERROR: Kconfig MISSING in ABS Target Dir before link!"; exit 1; fi
-        echo "ABS Target and Kconfig verified."
-        # --- End Verification ---
+        if [ ! -d "$ABS_TARGET_DIR" ]; then echo "ERROR: ABS Target Dir MISSING before link! Check merge step."; exit 1; fi
+        if [ ! -f "$ABS_TARGET_DIR/Kconfig" ]; then echo "ERROR: Kconfig MISSING in ABS Target Dir before link! Check merge step."; exit 1; fi
+        echo "ABS Target and Kconfig verified at [$ABS_TARGET_DIR]."
 
         # Ensure parent directory for link exists
         mkdir -p "$(dirname "$LINK_PATH")"
@@ -433,9 +434,9 @@ jobs:
         echo "Removing $LINK_PATH if it exists..."
         rm -rf "$LINK_PATH"
 
-        # Create the correct symbolic link
+        # Create the correct symbolic link pointing INSIDE kernel_source/vendor
         echo "Creating symbolic link: $LINK_PATH -> $TARGET_PATH"
-        ln -svf "$TARGET_PATH" "$LINK_PATH" # Added -v for verbose output
+        ln -svf "$TARGET_PATH" "$LINK_PATH"
         LN_EXIT_CODE=$?
         echo "ln exit code: $LN_EXIT_CODE"
         if [ $LN_EXIT_CODE -ne 0 ]; then echo "ERROR: ln command failed!"; exit 1; fi
@@ -450,16 +451,7 @@ jobs:
         echo "ls via link exit code: $LS_EXIT_CODE"
         if [ $LS_EXIT_CODE -ne 0 ]; then
            echo "ERROR: Immediate ls via link failed!"
-           echo "--- Checking permissions on target path components ---"
-           stat --format "Perms: %a User: %U Group: %G Name: %n" "/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor" || true
-           stat --format "Perms: %a User: %U Group: %G Name: %n" "/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus" || true
-           stat --format "Perms: %a User: %U Group: %G Name: %n" "/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus/sensor" || true
-           stat --format "Perms: %a User: %U Group: %G Name: %n" "/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus/sensor/kernel" || true
-           stat --format "Perms: %a User: %U Group: %G Name: %n" "/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus/sensor/kernel/sensorhub" || true
-           stat --format "Perms: %a User: %U Group: %G Name: %n" "$ABS_TARGET_DIR" || true
-           stat --format "Perms: %a User: %U Group: %G Name: %n" "$ABS_TARGET_DIR/Kconfig" || true
-           # Optionally exit here if immediate check fails
-           # exit 1
+           exit 1 # Exit if verification fails
         else
            echo "Immediate ls via link SUCCEEDED."
         fi
