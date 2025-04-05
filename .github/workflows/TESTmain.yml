@@ -357,7 +357,7 @@ jobs:
 
         # --- TARGET based on file content ---
         # Define the absolute path to the target directory OUTSIDE kernel_source for verification
-        ABS_TARGET_DIR="/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/vendor/oplus/sensor/kernel/sensorhub/oplus_sensor_devinfo"
+        ABS_TARGET_DIR="/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus/sensor/kernel/sensorhub/oplus_sensor_devinfo"
 
         echo "--- Checking state before fix for $LINK_PATH ---"
         ls -ld "$LINK_PATH" || echo "$LINK_PATH does not exist"
@@ -371,8 +371,8 @@ jobs:
         if [ ! -d "$ABS_TARGET_DIR" ]; then
             echo "ERROR: Target directory $ABS_TARGET_DIR (sensorhub) does not exist!"
             echo "Check 'Clone and merge OnePlus modules' step and the modules repo structure. Note the 'vendor/oplus/sensor' path!"
-            echo "--- Listing contents of /home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/vendor/oplus/sensor/kernel/sensorhub ---"
-            ls -la "/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/vendor/oplus/sensor/kernel/sensorhub" || echo "Parent sensorhub vendor dir not found"
+            echo "--- Listing contents of /home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus/sensor/kernel/sensorhub ---"
+            ls -la "/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus/sensor/kernel/sensorhub" || echo "Parent sensorhub vendor dir not found"
             exit 1
         fi
 
