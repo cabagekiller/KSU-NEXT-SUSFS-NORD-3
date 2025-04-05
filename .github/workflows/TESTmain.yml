@@ -109,7 +109,61 @@ jobs:
           #    echo "Skipping $broken_symlink -> $target (Target still missing)"
           # fi
         done
-    - name: Fix kernel/locking/oplus_locking symlink
+    - name: Fix kernel/oplus_cpu (replace file with symlink)
+      run: |
+        # Go into the main kernel source directory
+        cd /home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source || exit 1
+        # Define the link path (relative to current dir: kernel_source)
+        LINK_PATH="kernel/oplus_cpu"
+        # --- CORRECTED ---
+        # Define the target path RELATIVE TO THE LINK'S LOCATION (kernel_source/kernel/)
+        # Path goes up one level to kernel_source, then down into vendor/oplus/kernel/cpu
+        TARGET_PATH="../vendor/oplus/kernel/cpu"
+
+        # --- CORRECTED ---
+        # Define the absolute path to the target directory INSIDE kernel_source for verification
+        ABS_TARGET_DIR="/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus/kernel/cpu"
+
+        echo "--- Checking state before fix ---"
+        ls -ld "$LINK_PATH" || echo "$LINK_PATH does not exist"
+
+        # Verify the target directory exists AT THE CORRECT EXPECTED LOCATION (inside kernel_source/vendor)
+        if [ ! -d "$ABS_TARGET_DIR" ]; then
+            echo "ERROR: Target directory $ABS_TARGET_DIR (inside kernel_source/vendor) does not exist!"
+            echo "Check 'Clone and merge OnePlus modules' step and the modules repo structure."
+            echo "--- Listing contents of kernel_source ---"
+            ls -la "/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source"
+            echo "--- Listing contents of kernel_source/vendor ---"
+            ls -la "/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor" || echo "kernel_source/vendor not found"
+            exit 1
+        fi
+
+        # Verify the required Kconfig file exists in the target AT THE CORRECT EXPECTED LOCATION
+        if [ ! -f "$ABS_TARGET_DIR/sched/Kconfig" ]; then
+            echo "ERROR: Required file $ABS_TARGET_DIR/sched/Kconfig not found!"
+            echo "Check source checkout or branch in modules repo."
+            exit 1
+        fi
+
+        # Ensure kernel directory exists (where the link will be placed)
+        mkdir -p kernel
+
+        # Remove the incorrect file/link/directory if it exists
+        echo "Removing $LINK_PATH if it exists..."
+        rm -rf "$LINK_PATH"
+
+        # Create the correct symbolic link pointing INSIDE kernel_source/vendor/...
+        echo "Creating symbolic link: $LINK_PATH -> $TARGET_PATH"
+        ln -sf "$TARGET_PATH" "$LINK_PATH"
+
+        echo "--- Checking state after fix ---"
+        ls -ld "$LINK_PATH"
+        echo "--- Verifying link target contains sched/Kconfig ---"
+        # This uses the link, which should now point correctly
+        ls -l "$LINK_PATH/sched/Kconfig" || echo "ERROR: Could not find Kconfig via new link!"
+
+      shell: bash
+    - name: Fix kernel/locking/oplus_locking symlink (targeting synchronize)
       run: |
         # Go into the main kernel source directory
         cd /home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source || exit 1
@@ -117,26 +171,33 @@ jobs:
         # Define the link path (relative to current dir: kernel_source)
         LINK_PATH="kernel/locking/oplus_locking"
 
+        # --- CORRECTED TARGET based on file content ---
         # Define the target path RELATIVE TO THE LINK'S LOCATION (kernel_source/kernel/locking/)
-        # Path goes up two levels to kernel_source, then down into vendor/oplus/kernel/locking/oplus_locking
-        TARGET_PATH="../../vendor/oplus/kernel/locking/oplus_locking"
+        # Path goes up two levels to kernel_source, then down into vendor/oplus/kernel/synchronize
+        TARGET_PATH="../../vendor/oplus/kernel/synchronize"
 
+        # --- CORRECTED TARGET based on file content ---
         # Define the absolute path to the target directory INSIDE kernel_source/vendor for verification
-        ABS_TARGET_DIR="/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus/kernel/locking/oplus_locking"
+        ABS_TARGET_DIR="/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus/kernel/synchronize"
 
         echo "--- Checking state before fix for $LINK_PATH ---"
         ls -ld "$LINK_PATH" || echo "$LINK_PATH does not exist"
+        if [ -f "$LINK_PATH" ] && [ ! -L "$LINK_PATH" ]; then
+           echo "WARNING: $LINK_PATH is a regular file. Content:"
+           cat "$LINK_PATH"
+        fi
 
-        # Verify the target directory exists AT THE CORRECT EXPECTED LOCATION
+        # Verify the target directory exists AT THE CORRECT EXPECTED LOCATION (synchronize)
         if [ ! -d "$ABS_TARGET_DIR" ]; then
-            echo "ERROR: Target directory $ABS_TARGET_DIR for locking does not exist!"
+            echo "ERROR: Target directory $ABS_TARGET_DIR (synchronize) does not exist!"
             echo "Check 'Clone and merge OnePlus modules' step and the modules repo structure."
-            echo "--- Listing contents of kernel_source/vendor/oplus/kernel/locking ---"
-            ls -la "/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus/kernel/locking" || echo "kernel_source/vendor/oplus/kernel/locking not found"
+            echo "--- Listing contents of kernel_source/vendor/oplus/kernel ---"
+            ls -la "/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus/kernel" || echo "kernel_source/vendor/oplus/kernel not found"
             exit 1
         fi
 
-        # Verify the required Kconfig file exists in the target
+        # Verify the required Kconfig file exists in the target (synchronize)
+        # Check specifically for Kconfig inside the synchronize directory
         if [ ! -f "$ABS_TARGET_DIR/Kconfig" ]; then
             echo "ERROR: Required file $ABS_TARGET_DIR/Kconfig not found!"
             echo "Check source checkout or branch in modules repo."
@@ -150,14 +211,14 @@ jobs:
         echo "Removing $LINK_PATH if it exists..."
         rm -rf "$LINK_PATH"
 
-        # Create the correct symbolic link
+        # Create the correct symbolic link pointing to the synchronize directory
         echo "Creating symbolic link: $LINK_PATH -> $TARGET_PATH"
         ln -sf "$TARGET_PATH" "$LINK_PATH"
 
         echo "--- Checking state after fix for $LINK_PATH ---"
         ls -ld "$LINK_PATH"
         echo "--- Verifying link target contains Kconfig ---"
-        # This uses the link, which should now point correctly
+        # This uses the link, which should now point correctly to the Kconfig in the synchronize dir
         ls -l "$LINK_PATH/Kconfig" || echo "ERROR: Could not find Kconfig via new link!"
 
       shell: bash
