@@ -94,6 +94,18 @@ jobs:
         rm -rf tmp_modules
         cd kernel_source
         ls -a
+    - name: Debug merged vendor structure
+      run: |
+        echo "--- Listing kernel_source root after merge ---"
+        ls -la /home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source || echo "kernel_source not found"
+        echo "--- Listing kernel_source/vendor structure after merge (recursive) ---"
+        ls -lR /home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor || echo "kernel_source/vendor not found"
+        echo "--- Specifically checking for vendor/oplus/sensor ---"
+        ls -ld /home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus/sensor || echo "kernel_source/vendor/oplus/sensor not found"
+        echo "--- Specifically checking for sensorhub path ---"
+        ls -ld /home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus/sensor/kernel/sensorhub/oplus_sensor_devinfo || echo "Specific sensorhub path in kernel_source/vendor NOT found"
+      shell: bash
+
     - name: Repair kernel source symlinks
       working-directory: kernel_source
       run: |
