@@ -469,8 +469,8 @@ jobs:
 
         # --- TARGET based on file content ---
         # Define the target path RELATIVE TO THE LINK'S LOCATION (drivers/.../sensor/2.0/)
-        # Path goes up 6 levels to workspace root, then down into vendor/oplus/sensor/kernel/oplus_consumer_ir
-        TARGET_PATH="../../../../../../vendor/oplus/sensor/kernel/oplus_consumer_ir"
+        # Path goes up 5 levels to workspace root, then down into vendor/oplus/sensor/kernel/oplus_consumer_ir
+        TARGET_PATH="../../../../../vendor/oplus/sensor/kernel/oplus_consumer_ir"
 
         # --- Define ABSOLUTE TARGET PATH for verification ---
         # Points OUTSIDE kernel_source based on file content
