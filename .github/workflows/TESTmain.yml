@@ -580,6 +580,67 @@ jobs:
         echo "++++ FINISHED oplus_touchscreen_v2 fix ++++"
 
       shell: bash
+    - name: Fix drivers/.../synaptics_hbp symlink (targeting touchpanel)
+      run: |
+        echo "++++ STARTING synaptics_hbp fix (Targeting touchpanel) ++++"
+        # Go into the main kernel source directory
+        cd /home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source || exit 1
+
+        # Define the link path
+        LINK_PATH="drivers/input/touchscreen/synaptics_hbp"
+
+        # --- Define TARGET PATH based on touchpanel pattern ---
+        # Relative path from link location (drivers/input/touchscreen/) to target (vendor/oplus/kernel/touchpanel/)
+        # Path goes up 3 levels to kernel_source, then down into vendor/oplus/kernel/touchpanel/synaptics_hbp
+        TARGET_PATH="../../../vendor/oplus/kernel/touchpanel/synaptics_hbp"
+
+        # --- Define ABSOLUTE TARGET PATH for verification ---
+        # Points INSIDE kernel_source/vendor/... where merge likely placed it
+        ABS_TARGET_DIR="/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus/kernel/touchpanel/synaptics_hbp"
+
+        echo "Verifying ABS target BEFORE link: $ABS_TARGET_DIR"
+        # Add check in case placeholder file exists and points elsewhere
+        if [ -f "$LINK_PATH" ] && [ ! -L "$LINK_PATH" ]; then
+           echo "WARNING: Placeholder file exists at $LINK_PATH. Content:"
+           cat "$LINK_PATH"
+           echo "Ensure TARGET_PATH and ABS_TARGET_DIR above match the intent of this file content."
+        fi
+
+        if [ ! -d "$ABS_TARGET_DIR" ]; then echo "ERROR: ABS Target Dir [$ABS_TARGET_DIR] MISSING before link! Check merge step and touchpanel path."; exit 1; fi
+        if [ ! -f "$ABS_TARGET_DIR/Kconfig" ]; then echo "ERROR: Kconfig MISSING in ABS Target Dir [$ABS_TARGET_DIR] before link! Check merge step or modules repo."; exit 1; fi
+        echo "ABS Target and Kconfig verified at [$ABS_TARGET_DIR]."
+
+        # Ensure parent directory for link exists
+        mkdir -p "$(dirname "$LINK_PATH")"
+
+        # Remove the incorrect file/link/directory if it exists
+        echo "Removing $LINK_PATH if it exists..."
+        rm -rf "$LINK_PATH"
+
+        # Create the correct symbolic link pointing INSIDE kernel_source/vendor
+        echo "Creating symbolic link: $LINK_PATH -> $TARGET_PATH"
+        ln -svf "$TARGET_PATH" "$LINK_PATH"
+        LN_EXIT_CODE=$?
+        echo "ln exit code: $LN_EXIT_CODE"
+        if [ $LN_EXIT_CODE -ne 0 ]; then echo "ERROR: ln command failed!"; exit 1; fi
+
+        echo "--- Checking state immediately after link creation ---"
+        ls -ld "$LINK_PATH"
+
+        echo "--- Verifying link target access IMMEDIATELY after creation ---"
+        echo "Attempting: ls -l '$LINK_PATH/Kconfig'"
+        ls -l "$LINK_PATH/Kconfig"
+        LS_EXIT_CODE=$?
+        echo "ls via link exit code: $LS_EXIT_CODE"
+        if [ $LS_EXIT_CODE -ne 0 ]; then
+           echo "ERROR: Immediate ls via link failed!"
+           exit 1 # Exit if verification fails
+        else
+           echo "Immediate ls via link SUCCEEDED."
+        fi
+        echo "++++ FINISHED synaptics_hbp fix ++++"
+
+      shell: bash
     - name: Set up ccache
       uses: actions/cache@v3
       with:
