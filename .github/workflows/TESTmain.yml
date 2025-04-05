@@ -404,45 +404,27 @@ jobs:
         ls -l "$LINK_PATH/Kconfig" || echo "ERROR: Could not find Kconfig via new link!"
 
       shell: bash
-    - name: Fix drivers/.../oplus_sensor_feedback symlink (targeting sensorhub)
+    - name: Fix drivers/.../oplus_sensor_feedback symlink (targeting sensorhub) - MORE DEBUG
       run: |
+        echo "++++ STARTING feedback fix ++++"
         # Go into the main kernel source directory
         cd /home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source || exit 1
 
-        # Define the link path (relative to current dir: kernel_source)
+        # Define the link path
         LINK_PATH="drivers/misc/mediatek/sensor/2.0/oplus_sensor_feedback"
 
-        # --- TARGET based on file content ---
-        # Define the target path RELATIVE TO THE LINK'S LOCATION (kernel_source/drivers/misc/mediatek/sensor/2.0/)
-        # Path goes up 6 levels to workspace root, then down into vendor/oplus/sensor/kernel/sensorhub/oplus_sensor_feedback
+        # Define the relative target path
         TARGET_PATH="../../../../../../vendor/oplus/sensor/kernel/sensorhub/oplus_sensor_feedback"
 
-        # --- TARGET based on file content ---
-        # Define the absolute path to the target directory OUTSIDE kernel_source for verification
+        # Define the absolute target path
         ABS_TARGET_DIR="/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus/sensor/kernel/sensorhub/oplus_sensor_feedback"
 
-        echo "--- Checking state before fix for $LINK_PATH ---"
-        ls -ld "$LINK_PATH" || echo "$LINK_PATH does not exist"
-        # Add check in case it's a file containing the path
-        if [ -f "$LINK_PATH" ] && [ ! -L "$LINK_PATH" ]; then
-           echo "WARNING: $LINK_PATH is a regular file. Content:"
-           cat "$LINK_PATH"
-        fi
-
-        # Verify the target directory exists AT THE CORRECT EXPECTED LOCATION (under vendor/oplus/sensor)
-        if [ ! -d "$ABS_TARGET_DIR" ]; then
-            echo "ERROR: Target directory $ABS_TARGET_DIR (sensorhub feedback) does not exist!"
-            echo "Check 'Clone and merge OnePlus modules' step and the modules repo structure. Note the 'vendor/oplus/sensor' path!"
-            echo "--- Listing contents of /home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus/sensor/kernel/sensorhub ---"
-            ls -la "/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus/sensor/kernel/sensorhub" || echo "Parent sensorhub vendor dir not found"
-            exit 1
-        fi
-
-        # Verify the required Kconfig file exists in the target
-        if [ ! -f "$ABS_TARGET_DIR/Kconfig" ]; then
-            echo "ERROR: Required file $ABS_TARGET_DIR/Kconfig not found!"
-            exit 1
-        fi
+        # --- Verification of ABS target BEFORE link creation ---
+        echo "Verifying ABS target BEFORE link: $ABS_TARGET_DIR"
+        if [ ! -d "$ABS_TARGET_DIR" ]; then echo "ERROR: ABS Target Dir MISSING before link!"; exit 1; fi
+        if [ ! -f "$ABS_TARGET_DIR/Kconfig" ]; then echo "ERROR: Kconfig MISSING in ABS Target Dir before link!"; exit 1; fi
+        echo "ABS Target and Kconfig verified."
+        # --- End Verification ---
 
         # Ensure parent directory for link exists
         mkdir -p "$(dirname "$LINK_PATH")"
@@ -451,14 +433,37 @@ jobs:
         echo "Removing $LINK_PATH if it exists..."
         rm -rf "$LINK_PATH"
 
-        # Create the correct symbolic link pointing to the vendor sensorhub directory
+        # Create the correct symbolic link
         echo "Creating symbolic link: $LINK_PATH -> $TARGET_PATH"
-        ln -sf "$TARGET_PATH" "$LINK_PATH"
+        ln -svf "$TARGET_PATH" "$LINK_PATH" # Added -v for verbose output
+        LN_EXIT_CODE=$?
+        echo "ln exit code: $LN_EXIT_CODE"
+        if [ $LN_EXIT_CODE -ne 0 ]; then echo "ERROR: ln command failed!"; exit 1; fi
 
-        echo "--- Checking state after fix for $LINK_PATH ---"
+        echo "--- Checking state immediately after link creation ---"
         ls -ld "$LINK_PATH"
-        echo "--- Verifying link target contains Kconfig ---"
-        ls -l "$LINK_PATH/Kconfig" || echo "ERROR: Could not find Kconfig via new link!"
+
+        echo "--- Verifying link target access IMMEDIATELY after creation ---"
+        echo "Attempting: ls -l '$LINK_PATH/Kconfig'"
+        ls -l "$LINK_PATH/Kconfig"
+        LS_EXIT_CODE=$?
+        echo "ls via link exit code: $LS_EXIT_CODE"
+        if [ $LS_EXIT_CODE -ne 0 ]; then
+           echo "ERROR: Immediate ls via link failed!"
+           echo "--- Checking permissions on target path components ---"
+           stat --format "Perms: %a User: %U Group: %G Name: %n" "/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor" || true
+           stat --format "Perms: %a User: %U Group: %G Name: %n" "/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus" || true
+           stat --format "Perms: %a User: %U Group: %G Name: %n" "/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus/sensor" || true
+           stat --format "Perms: %a User: %U Group: %G Name: %n" "/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus/sensor/kernel" || true
+           stat --format "Perms: %a User: %U Group: %G Name: %n" "/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus/sensor/kernel/sensorhub" || true
+           stat --format "Perms: %a User: %U Group: %G Name: %n" "$ABS_TARGET_DIR" || true
+           stat --format "Perms: %a User: %U Group: %G Name: %n" "$ABS_TARGET_DIR/Kconfig" || true
+           # Optionally exit here if immediate check fails
+           # exit 1
+        else
+           echo "Immediate ls via link SUCCEEDED."
+        fi
+        echo "++++ FINISHED feedback fix ++++"
 
       shell: bash
     - name: Set up ccache
