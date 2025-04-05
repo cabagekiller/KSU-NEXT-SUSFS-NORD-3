@@ -118,7 +118,7 @@ jobs:
         TARGET_PATH="../../vendor/oplus/kernel/cpu"
 
         # Define the absolute path to the target for verification
-        ABS_TARGET_DIR="/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/vendor/oplus/kernel/cpu" # Adjust if base path is different
+        ABS_TARGET_DIR="/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus/kernel/cpu" # Adjust if base path is different
 
         echo "--- Checking state before fix ---"
         ls -ld "$LINK_PATH" || echo "$LINK_PATH does not exist"
@@ -127,7 +127,7 @@ jobs:
         if [ ! -d "$ABS_TARGET_DIR" ]; then
             echo "ERROR: Target directory $ABS_TARGET_DIR does not exist!"
             echo "Check source checkout steps for vendor code."
-            ls -la /home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/ # List parent dir contents
+            ls -la /home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source # List parent dir contents
             exit 1
         fi
 
