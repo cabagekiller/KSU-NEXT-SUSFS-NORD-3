@@ -222,7 +222,65 @@ jobs:
         ls -l "$LINK_PATH/Kconfig" || echo "ERROR: Could not find Kconfig via new link!"
 
       shell: bash
-        
+    - name: Fix mm/oplus_mm symlink (targeting vendor mm dir)
+      run: |
+        # Go into the main kernel source directory
+        cd /home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source || exit 1
+
+        # Define the link path (relative to current dir: kernel_source)
+        LINK_PATH="mm/oplus_mm"
+
+        # --- CORRECTED TARGET based on file content ---
+        # Define the target path RELATIVE TO THE LINK'S LOCATION (kernel_source/mm/)
+        # Path goes up one level to kernel_source, then down into vendor/oplus/kernel/mm
+        TARGET_PATH="../vendor/oplus/kernel/mm"
+
+        # --- CORRECTED TARGET based on file content ---
+        # Define the absolute path to the target directory INSIDE kernel_source/vendor for verification
+        ABS_TARGET_DIR="/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus/kernel/mm"
+
+        echo "--- Checking state before fix for $LINK_PATH ---"
+        ls -ld "$LINK_PATH" || echo "$LINK_PATH does not exist"
+        if [ -f "$LINK_PATH" ] && [ ! -L "$LINK_PATH" ]; then
+           echo "WARNING: $LINK_PATH is a regular file. Content:"
+           cat "$LINK_PATH"
+        fi
+
+        # Verify the target directory exists AT THE CORRECT EXPECTED LOCATION (vendor mm)
+        if [ ! -d "$ABS_TARGET_DIR" ]; then
+            echo "ERROR: Target directory $ABS_TARGET_DIR (vendor mm) does not exist!"
+            echo "Check 'Clone and merge OnePlus modules' step and the modules repo structure."
+            echo "--- Listing contents of kernel_source/vendor/oplus/kernel ---"
+            ls -la "/home/runner/work/KSU-NEXT-SUSFS-NORD-3/KSU-NEXT-SUSFS-NORD-3/kernel_source/vendor/oplus/kernel" || echo "kernel_source/vendor/oplus/kernel not found"
+            exit 1
+        fi
+
+        # Verify the required Kconfig file exists in the target (vendor mm)
+        # Check specifically for Kconfig inside the vendor mm directory
+        if [ ! -f "$ABS_TARGET_DIR/Kconfig" ]; then
+            echo "ERROR: Required file $ABS_TARGET_DIR/Kconfig not found!"
+            echo "Check source checkout or branch in modules repo."
+            exit 1
+        fi
+
+        # Ensure parent directory for link exists (mm)
+        mkdir -p mm
+
+        # Remove the incorrect file/link/directory if it exists
+        echo "Removing $LINK_PATH if it exists..."
+        rm -rf "$LINK_PATH"
+
+        # Create the correct symbolic link pointing to the vendor mm directory
+        echo "Creating symbolic link: $LINK_PATH -> $TARGET_PATH"
+        ln -sf "$TARGET_PATH" "$LINK_PATH"
+
+        echo "--- Checking state after fix for $LINK_PATH ---"
+        ls -ld "$LINK_PATH"
+        echo "--- Verifying link target contains Kconfig ---"
+        # This uses the link, which should now point correctly to the Kconfig in the vendor mm dir
+        ls -l "$LINK_PATH/Kconfig" || echo "ERROR: Could not find Kconfig via new link!"
+
+      shell: bash
     - name: Set up ccache
       uses: actions/cache@v3
       with:
